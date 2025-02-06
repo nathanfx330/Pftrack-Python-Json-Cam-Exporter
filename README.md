@@ -8,12 +8,6 @@ This is a foundational project that will serve as a stepping stone for developin
     Customizable Output: Outputs the data as a JSON file on your desktop with a customizable name.
     Integration: Works as a Python node in PFTrack, utilizing PFTrack's Python API.
 
-Requirements
-
-    PFTrack (with Python node support)
-    Python 3.x
-    PFTrack's Python API (pfpy)
-
 Usage
 
    Loads into the Python Node in PF Track Placed after a Camera Solve or Survey Solve
