@@ -14,4 +14,4 @@ Requirements
 
 Usage
 
-   Loads into the Python Node in PF Track
+   Loads into the Python Node in PF Track Placed after a Camera Solve or Survey Solve
