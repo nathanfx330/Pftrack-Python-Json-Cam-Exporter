@@ -2,10 +2,10 @@
 
 This repository provides a Python node for PFTrack to export camera data as a JSON file. The exporter extracts keyframe information such as translation, rotation, focal length, and field of view (FOV) for each frame in the animated camera's sequence.
 
-New: PFtoNERF. 
-A script designed to export PFTrack's Photo Survey camera solve and variable focus undistort (exported as PF Barrel) and generate a Nerfstudio-compatible transforms.json. (Currently working on solving sharpness values.)
-
 This is a foundational project that will serve as a stepping stone for developing the next version, which will generate the `transforms.json` file for NerfStudio.
+
+Update: PFtoNERF 
+A script designed to export PFTrack's Photo Survey camera solve and variable focus undistort (exported as PF Barrel) and generate a Nerfstudio-compatible transforms.json. (Currently working on solving sharpness values.)
 
 ## Features
 
