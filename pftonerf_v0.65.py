@@ -3,8 +3,8 @@ import json
 import os
 import math
 
-# Path to the PF barrel pfb distortion file, remember delete header text.
-DISTORTION_FILE_PATH = r"path to..\distortion.pfb"
+# Path to the .pfb file (pf barrel) distortion file (remember to delete the header text)
+DISTORTION_FILE_PATH = r"path to... distortion.pfb"
 
 def read_distortion_file(file_path):
     """Reads the distortion file, filtering out non-numeric lines and extracting relevant values."""
@@ -46,6 +46,46 @@ def read_distortion_file(file_path):
         print("Error: Could not extract all distortion values correctly. Error details: {0}".format(str(e)))
         return None
 
+def euler_to_rotation_matrix(rotation):
+    """Convert Euler rotation to a 3x3 rotation matrix."""
+    roll, pitch, yaw = rotation  # Assuming the order is roll, pitch, yaw
+    
+    # Convert degrees to radians
+    roll = math.radians(roll)
+    pitch = math.radians(pitch)
+    yaw = math.radians(yaw)
+
+    # Rotation matrices around the X, Y, Z axes
+    Rx = [[1, 0, 0],
+          [0, math.cos(roll), -math.sin(roll)],
+          [0, math.sin(roll), math.cos(roll)]]
+    
+    Ry = [[math.cos(pitch), 0, math.sin(pitch)],
+          [0, 1, 0],
+          [-math.sin(pitch), 0, math.cos(pitch)]]
+    
+    Rz = [[math.cos(yaw), -math.sin(yaw), 0],
+          [math.sin(yaw), math.cos(yaw), 0],
+          [0, 0, 1]]
+    
+    # Combine the rotations
+    rotation_matrix = matrix_multiply(Rx, matrix_multiply(Ry, Rz))
+    return rotation_matrix
+
+def matrix_multiply(A, B):
+    """Multiplies two 3x3 matrices."""
+    return [[sum(A[i][k] * B[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+
+def build_transform_matrix(rotation_matrix, translation):
+    """Constructs a 4x4 transformation matrix from rotation and translation."""
+    # Rotation matrix already gives us the top-left 3x3 part
+    transform_matrix = [
+        [rotation_matrix[0][0], rotation_matrix[0][1], rotation_matrix[0][2], translation[0]],
+        [rotation_matrix[1][0], rotation_matrix[1][1], rotation_matrix[1][2], translation[1]],
+        [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2], translation[2]],
+        [0.0, 0.0, 0.0, 1.0]  # Homogeneous coordinate row
+    ]
+    return transform_matrix
 
 def create_and_export_camera_keyframes(output_json="transform.json"):
     """Extracts camera keyframes and exports them to a JSON file in the transform.json format."""
@@ -78,15 +118,16 @@ def create_and_export_camera_keyframes(output_json="transform.json"):
             focal_length = cam.getFocalLength(frame, 'mm')  # **FIXED**
             fov = cam.getHorizontalFOV(frame, 'deg')
 
+            # Check if PFTrack provides a direct transformation matrix method
+            transform_matrix = cam.getTransformMatrix(frame)  # Hypothetical method
+
+            if transform_matrix is None:
+                # If there's no direct method, construct it manually using translation and rotation
+                rotation_matrix = euler_to_rotation_matrix(rotation)  # Convert euler rotation to matrix
+                transform_matrix = build_transform_matrix(rotation_matrix, translation)
+
             camera_angle_x = 2 * math.atan(width / (2 * focal_length))
             camera_angle_y = 2 * math.atan(height / (2 * focal_length))
-
-            transform_matrix = [
-                [0.860, -0.045, -0.508, translation[0]],
-                [-0.510, -0.047, -0.859, translation[1]],
-                [0.015, 0.998, -0.064, translation[2]],
-                [0.0, 0.0, 0.0, 1.0]
-            ]
 
             # Store frame data in the correct format for NeRF Studio
             frame_info = {
@@ -126,7 +167,3 @@ def create_and_export_camera_keyframes(output_json="transform.json"):
         print("{0} frames exported to {1}.".format(len(frames_data), output_path))
     except IOError as e:
         print("Error writing to file {0}: {1}".format(output_path, str(e)))
-
-
-# Export camera keyframe data to JSON in the NeRF transform.json format
-create_and_export_camera_keyframes("transform.json")
