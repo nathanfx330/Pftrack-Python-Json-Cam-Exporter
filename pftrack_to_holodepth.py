@@ -1,17 +1,13 @@
 #
-# Project: HoloDepth - PFTrack to models.json Exporter
-# Version: 2.7 FINAL EXECUTION
-# Compatibility: Python 2.7 (for legacy embedded interpreters like PFTrack)
+# Project: HoloDepth - PFTrack Exporter
+# Version: 3.0 FINAL (Python 2, Correct Pathing)
 #
 import pfpy
 import json
 import os
 import math
 
-# ==============================================================================
-# --- Mathematical Functions (Python 2, No Dependencies) ---
-# ==============================================================================
-
+# (All the math functions remain the same as the last version)
 def matrix_multiply(A, B):
     C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     for i in range(3):
@@ -31,92 +27,59 @@ def rotation_matrix_to_axis_angle(R):
     trace = R[0][0] + R[1][1] + R[2][2]
     clipped_value = max(-1.0, min(1.0, (trace - 1.0) / 2.0))
     angle = math.acos(clipped_value)
-
-    if abs(angle) < 1e-6:
-        return [0.0, 0.0, 0.0]
-
-    rx = R[2][1] - R[1][2]
-    ry = R[0][2] - R[2][0]
-    rz = R[1][0] - R[0][1]
+    if abs(angle) < 1e-6: return [0.0, 0.0, 0.0]
+    rx, ry, rz = R[2][1] - R[1][2], R[0][2] - R[2][0], R[1][0] - R[0][1]
     axis = [rx, ry, rz]
-    norm = math.sqrt(axis[0]**2 + axis[1]**2 + axis[2]**2)
-
+    norm = math.sqrt(sum(c**2 for c in axis))
     if norm < 1e-6:
-      if R[0][0] > R[1][1] and R[0][0] > R[2][2]:
-          t = math.sqrt(1.0 + R[0][0] - R[1][1] - R[2][2]) * 2.0
-          axis = [t / 4.0, (R[0][1]+R[1][0]) / t, (R[0][2]+R[2][0]) / t]
-      elif R[1][1] > R[2][2]:
-          t = math.sqrt(1.0 - R[0][0] + R[1][1] - R[2][2]) * 2.0
-          axis = [(R[0][1]+R[1][0]) / t, t / 4.0, (R[1][2]+R[2][1]) / t]
-      else:
-          t = math.sqrt(1.0 - R[0][0] - R[1][1] + R[2][2]) * 2.0
-          axis = [(R[0][2]+R[2][0]) / t, (R[1][2]+R[2][1]) / t, t / 4.0]
-      norm = math.sqrt(axis[0]**2 + axis[1]**2 + axis[2]**2)
-
+        # Stable fallback for 180 degree rotation
+        if R[0][0] > R[1][1] and R[0][0] > R[2][2]:
+            t = math.sqrt(1.0 + R[0][0] - R[1][1] - R[2][2]) * 2.0; axis = [t / 4.0, (R[0][1]+R[1][0]) / t, (R[0][2]+R[2][0]) / t]
+        elif R[1][1] > R[2][2]:
+            t = math.sqrt(1.0 - R[0][0] + R[1][1] - R[2][2]) * 2.0; axis = [(R[0][1]+R[1][0]) / t, t / 4.0, (R[1][2]+R[2][1]) / t]
+        else:
+            t = math.sqrt(1.0 - R[0][0] - R[1][1] + R[2][2]) * 2.0; axis = [(R[0][2]+R[2][0]) / t, (R[1][2]+R[2][1]) / t, t / 4.0]
+        norm = math.sqrt(sum(c**2 for c in axis))
     axis_normalized = [c / norm for c in axis]
-    axis_angle_vector = [c * angle for c in axis_normalized]
-    return axis_angle_vector
+    return [c * angle for c in axis_normalized]
 
-# ==============================================================================
-# --- Main Exporter Logic ---
-# ==============================================================================
 
-def export_for_holodepth(output_filename="models.json"):
-    print "--- Starting HoloDepth Exporter ---"
+def export_for_holodepth(scene_name, image_extension="jpg", output_filename="models.json"):
+    print "--- Starting HoloDepth Exporter V3 ---"
     
-    try:
-        cam = pfpy.getCameraRef(0)
-    except Exception as e:
-        print "Error: Could not get PFTrack camera. Error: %s" % str(e)
-        return
+    try: cam = pfpy.getCameraRef(0)
+    except: print "Error: Could not get PFTrack camera."; return
 
-    start_frame = cam.getInPoint()
-    end_frame = cam.getOutPoint()
-    print "Processing frames %d to %d..." % (start_frame, end_frame)
+    start_frame, end_frame = cam.getInPoint(), cam.getOutPoint()
+    print "Processing %s from frame %d to %d..." % (scene_name, start_frame, end_frame)
 
     camera_data_list = []
-    width = cam.getFrameWidth()
-    height = cam.getFrameHeight()
+    width, height = cam.getFrameWidth(), cam.getFrameHeight()
 
     for frame_index, frame in enumerate(xrange(start_frame, end_frame + 1)):
-        position = cam.getTranslation(frame)
-        euler_rotation_xyz = cam.getEulerRotation(frame, 'xyz')
-        focal_length_pixels = cam.getFocalLength(frame, 'pixels')
-        principal_point = [width / 2.0, height / 2.0]
-        rotation_matrix = euler_to_rotation_matrix(euler_rotation_xyz)
-        orientation_axis_angle = rotation_matrix_to_axis_angle(rotation_matrix)
-
+        # ======================================================================
+        # THE FIX: Generate the relative_path to match your actual files
+        # ======================================================================
+        relative_path = "%s_%04d.%s" % (scene_name, frame_index, image_extension)
+        
         camera_info = {
-            "position": position,
-            "orientation": orientation_axis_angle,
-            "focal_length": focal_length_pixels,
-            "principal_point": principal_point,
+            "position": cam.getTranslation(frame),
+            "orientation": rotation_matrix_to_axis_angle(euler_to_rotation_matrix(cam.getEulerRotation(frame, 'xyz'))),
+            "focal_length": cam.getFocalLength(frame, 'pixels'),
+            "principal_point": [width / 2.0, height / 2.0],
             "width": float(width),
             "height": float(height),
             "pixel_aspect_ratio": 1.0,
-            "relative_path": "image_%02d.png" % frame_index
+            "relative_path": relative_path
         }
         camera_data_list.append(camera_info)
 
-    final_output_structure = [camera_data_list]
-    output_dir = os.path.join(os.path.expanduser("~"), "Desktop")
-    output_path = os.path.join(output_dir, output_filename)
+    final_output = [camera_data_list]
+    output_path = os.path.join(os.path.expanduser("~"), "Desktop", output_filename)
 
-    print "Data processed. Attempting to write file to: %s" % output_path
     try:
-        with open(output_path, 'w') as json_file:
-            json.dump(final_output_structure, json_file, indent=4)
-        print "\nSUCCESS: %d camera poses exported to %s" % (len(camera_data_list), output_path)
-    except IOError as e:
-        print "\nERROR: Could not write to file. Check permissions. Error: %s" % str(e)
+        with open(output_path, 'w') as f:
+            json.dump(final_output, f, indent=4)
+        print "\nSUCCESS: Exported %s for %d frames to Desktop." % (output_filename, len(camera_data_list))
     except Exception as e:
-        print "\nAn unexpected error occurred during file writing: %s" % str(e)
-
-
-# ==============================================================================
-# --- SCRIPT EXECUTION ---
-# This line is no longer guarded by 'if __name__ == "__main__"'
-# This forces the function to run as soon as PFTrack loads the script.
-# This is the critical fix.
-# ==============================================================================
-export_for_holodepth()
+        print "\nERROR: Could not write file. Error: %s" % str(e)
