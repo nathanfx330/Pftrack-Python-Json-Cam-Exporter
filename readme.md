@@ -190,12 +190,3 @@ with open(output_path, 'w') as f:
 ---
 
 This guide should help you quickly write reliable PFTrack Python scripts for exporting camera data and frame sequences.
-
-```
-
----
-
-If you want, I can also create a **version with visuals and example JSON output** embedded for GitHub, which helps new users immediately see the structure.  
-
-Do you want me to do that next?
-```
