@@ -185,7 +185,3 @@ print "Export complete! File saved at:", output_path
 ---
 
 This guide provides a solid foundation for creating robust PFTrack Python scripts for camera exports and dataset preparation.
-
----
-
-If you want, I can also write a **v4.5 “full working exporter” script** that follows all these best practices, ready to run in Python 2.7. Do you want me to do that?
