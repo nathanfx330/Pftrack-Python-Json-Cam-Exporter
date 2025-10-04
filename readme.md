@@ -1,31 +1,32 @@
-````markdown
-# PFTrack Python Scripting Guide: 
-Pftrack-Python-Json-Cam-Exporter 
+# PFTrack Python Scripting Guide: PFTrack-Python-JSON-Cam-Exporter
 
-This guide provides instructions and best practices for writing Python scripts to automate camera and frame exports from PFTrack. It is aimed at users who want to extract camera parameters, handle lens distortion, or prepare data for downstream applications like computer vision or machine learning.
+This guide provides instructions and best practices for writing Python scripts to automate camera and frame exports from PFTrack, aimed at preparing data for computer vision or machine learning workflows.
 
 ---
 
 ## 1. PFTrack Python API Basics
 
-PFTrack exposes most scene, camera, and lens information via the `pfpy` module.
+PFTrack exposes scene, camera, and lens information via the `pfpy` module.
 
-### Getting a camera reference
+### Getting a Camera Reference
+
 ```python
 import pfpy
 
-cam = pfpy.getCameraRef(0)  # Get the first camera in the scene
-````
+cam = pfpy.getCameraRef(0)  # First camera in the scene
+```
 
-### Key camera methods
+### Key Camera Methods
 
-* `cam.getTranslation(frame)` → returns camera position at a given frame
-* `cam.getEulerRotation(frame, order)` → returns camera rotation in Euler angles
-* `cam.getFocalLength(frame, unit)` → focal length (`'mm'` or `'pixels'`)
-* `cam.getFrameWidth()` / `cam.getFrameHeight()` → frame resolution
-* `cam.getInPoint()` / `cam.getOutPoint()` → first and last frame of the camera
+| Method                                         | Description                              |
+| ---------------------------------------------- | ---------------------------------------- |
+| `cam.getTranslation(frame)`                    | Returns camera position at a given frame |
+| `cam.getEulerRotation(frame, order)`           | Returns camera rotation in Euler angles  |
+| `cam.getFocalLength(frame, unit)`              | Focal length in `'mm'` or `'pixels'`     |
+| `cam.getFrameWidth()` / `cam.getFrameHeight()` | Frame resolution                         |
+| `cam.getInPoint()` / `cam.getOutPoint()`       | Start and end frames for the camera      |
 
-> **Note:** PFTrack cameras may not provide the actual image filename. You may need to construct filenames from a known prefix and padding.
+> **Note:** PFTrack cameras may not provide the actual image filename. Filenames often need to be constructed from a known prefix and padding.
 
 ---
 
@@ -33,10 +34,10 @@ cam = pfpy.getCameraRef(0)  # Get the first camera in the scene
 
 PFTrack scripts typically require **Python 2.7**:
 
-* Print statements use: `print "text"`
+* Print statements: `print "text"`
 * Exception syntax: `except Exception, e:`
 
-Some Python 3 features (f-strings, certain context managers) will not work.
+Python 3 features (f-strings, certain context managers) will **not** work.
 
 ---
 
@@ -54,8 +55,6 @@ for frame in xrange(start, end + 1):
 
 ### Frame Numbering
 
-To create consistent image filenames:
-
 ```python
 filename = "%s%04d.jpg" % ("img_", frame)  # img_0001.jpg
 ```
@@ -68,15 +67,15 @@ PFTrack lens distortion is stored in `.pfb` files.
 
 1. Read the `.pfb` file.
 2. Extract low/high order distortion and principal point.
-3. Store this information alongside camera data in JSON.
+3. Store this alongside camera data in JSON.
 
-Always verify that distortion data covers the full frame range.
+Ensure distortion data covers the full frame range.
 
 ---
 
 ## 5. Exporting Camera Data for Machine Learning
 
-Typical export dictionary structure per frame:
+Typical export dictionary per frame:
 
 ```python
 frame_info = {
@@ -85,15 +84,15 @@ frame_info = {
     "focal_length": focal_length,
     "pixel_aspect_ratio": 1.0,
     "position": cam.getTranslation(frame),
-    "orientation": orientation_vector,  # usually axis-angle or Euler
+    "orientation": orientation_vector,  # axis-angle or Euler
     "principal_point": [cx, cy],
     "relative_path": image_path
 }
 ```
 
-* Use **forward slashes** in file paths for JSON portability.
+* Use **forward slashes** in file paths.
 * Prefix and padding should be configurable.
-* Handle missing frames gracefully (log warnings and continue).
+* Handle missing frames gracefully.
 
 ---
 
@@ -112,30 +111,23 @@ import sys
 sys.stdout.flush()
 ```
 
-* Verify the camera object supports the methods you call (`getImageFile()` may not exist).
+* Check that the camera object supports the methods you call (`getImageFile()` may not exist).
 
 ---
 
 ## 7. Common Pitfalls
 
-* Using Python 3 instead of Python 2.7.
-* Hard-coded file paths.
-* Incorrect frame indexing (PFTrack frames may start at 1, not 0).
-* Missing images or distortion data.
-* Orientation math errors; convert Euler angles to matrices before axis-angle.
+* Using Python 3 instead of Python 2.7
+* Hard-coded file paths
+* Incorrect frame indexing (PFTrack frames may start at 1)
+* Missing images or distortion data
+* Orientation math errors; convert Euler angles to matrices before axis-angle
 
 ---
 
 ## 8. Configuration Best Practices
 
 Use constants for:
-
-* Image folder path
-* Sequence prefix
-* Sequence padding
-* Image file extension
-
-Example:
 
 ```python
 IMAGE_FOLDER = r"C:/MySequence"
@@ -165,6 +157,7 @@ frames_data = []
 for frame in xrange(start, end + 1):
     filename = "%s%0*d.%s" % (SEQUENCE_PREFIX, SEQUENCE_PADDING, frame, EXT)
     filename_path = os.path.join(IMAGE_FOLDER, filename).replace("\\","/")
+    
     frames_data.append({
         "position": cam.getTranslation(frame),
         "orientation": cam.getEulerRotation(frame, 'xyz'),
@@ -175,18 +168,24 @@ output_path = os.path.join(os.path.expanduser("~"), "Desktop", "models.json")
 
 with open(output_path, 'w') as f:
     json.dump([frames_data], f, indent=4)
+
+print "Export complete! File saved at:", output_path
 ```
 
 ---
 
 ## 10. Key Takeaways
 
-1. PFTrack scripting is mostly about **camera extraction, frame loops, and consistent filenames**.
-2. **Debug early** — logging each frame saves hours.
+1. PFTrack scripting focuses on **camera extraction, frame loops, and consistent filenames**.
+2. **Debug early** — logging each frame saves time.
 3. Use **configurable parameters** for paths, prefixes, and padding.
-4. **Handle errors gracefully**, especially missing frames or distortion values.
+4. **Handle errors gracefully** — especially missing frames or distortion values.
 5. Export JSON with **forward slashes** for cross-platform compatibility.
 
 ---
 
-This guide should help you quickly write reliable PFTrack Python scripts for exporting camera data and frame sequences.
+This guide provides a solid foundation for creating robust PFTrack Python scripts for camera exports and dataset preparation.
+
+---
+
+If you want, I can also write a **v4.5 “full working exporter” script** that follows all these best practices, ready to run in Python 2.7. Do you want me to do that?
